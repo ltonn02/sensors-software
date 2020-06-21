@@ -241,6 +241,7 @@ static const char MEASUREMENT_NAME_INFLUX[] PROGMEM = "feinstaub";
 #define DNMS_READ 0
 #define DNMS_API_PIN 15
 #define DNMS_CORRECTION "0.0"
+#define TEMP_CORRECTION "0.0"
 
 // GPS, preferred Neo-6M
 #define GPS_READ 0

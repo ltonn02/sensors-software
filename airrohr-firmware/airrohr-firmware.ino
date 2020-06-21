@@ -220,6 +220,7 @@ namespace cfg {
 	bool ds18b20_read = DS18B20_READ;
 	bool dnms_read = DNMS_READ;
 	char dnms_correction[LEN_DNMS_CORRECTION] = DNMS_CORRECTION;
+	char temp_correction[LEN_TEMP_CORRECTION] = TEMP_CORRECTION;
 	bool gps_read = GPS_READ;
 
 	// send to "APIs"
@@ -1458,6 +1459,10 @@ static void webserver_config_send_body_get(String& page_content) {
 	add_form_input(page_content, Config_dnms_correction, FPSTR(INTL_DNMS_CORRECTION), LEN_DNMS_CORRECTION-1);
 	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
 
+	page_content += FPSTR(TABLE_TAG_OPEN);
+	add_form_input(page_content, Config_temp_correction, FPSTR(INTL_TEMP_CORRECTION), LEN_TEMP_CORRECTION-1);
+	page_content += FPSTR(TABLE_TAG_CLOSE_BR);
+
 	page_content += FPSTR(WEB_BR_LF_B);
 	page_content += FPSTR(INTL_MORE_SENSORS);
 	page_content += FPSTR(WEB_B_BR);
@@ -1584,6 +1589,7 @@ static void webserver_config_send_body_post(String& page_content) {
 	add_line_value_bool(page_content, FPSTR(INTL_READ_FROM), FPSTR(SENSORS_DS18B20), ds18b20_read);
 	add_line_value_bool(page_content, FPSTR(INTL_READ_FROM), FPSTR(SENSORS_DNMS), dnms_read);
 	add_line_value(page_content, FPSTR(INTL_DNMS_CORRECTION), String(dnms_correction));
+	add_line_value(page_content, FPSTR(INTL_TEMP_CORRECTION), String(temp_correction));
 	add_line_value_bool(page_content, FPSTR(INTL_READ_FROM), F("GPS"), gps_read);
 
 	// Paginate after ~ 1500 bytes
@@ -2699,13 +2705,14 @@ static void fetchSensorBMX280(String& s) {
 	const auto t = bmx280.readTemperature();
 	const auto p = bmx280.readPressure();
 	const auto h = bmx280.readHumidity();
+	float corr_t = t + readTEMPcorrection();
 	if (isnan(t) || isnan(p)) {
 		last_value_BMX280_T = -128.0;
 		last_value_BMX280_P = -1.0;
 		last_value_BME280_H = -1.0;
 		debug_outln_error(F("BMP/BME280 read failed"));
 	} else {
-		last_value_BMX280_T = t;
+		last_value_BMX280_T = corr_t;
 		last_value_BMX280_P = p;
 		if (bmx280.sensorID() == BME280_SENSOR_ID) {
 			add_Value2Json(s, F("BME280_temperature"), FPSTR(DBG_TXT_TEMPERATURE), last_value_BMX280_T);
@@ -3266,6 +3273,15 @@ static float readDNMScorrection() {
 	// Avoiding atof() here as this adds a lot (~ 9kb) of code size
 	float r = float(strtol(cfg::dnms_correction, &pEnd, 10));
 	if (pEnd && pEnd[0] == '.' && pEnd[1] >= '0' && pEnd[1] <= '9') {
+		r += (r >= 0 ? 1.0 : -1.0) * ((pEnd[1] - '0') / 10.0);
+	}
+	return r;
+}
+
+static float readTEMPcorrection() {
+	char* pEnd = nullptr;
+	float r = float(strtol(cfg::temp_correction, &pEnd, 10));
+	if(pEnd && pEnd[0] == '.' && pEnd[1] >= '0' && pEnd[1] <= '9') {
 		r += (r >= 0 ? 1.0 : -1.0) * ((pEnd[1] - '0') / 10.0);
 	}
 	return r;
